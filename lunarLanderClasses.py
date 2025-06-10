@@ -28,12 +28,12 @@ class LunarLanderClass:
         
         # Parametri per la discretizzazione dello spazio degli stati
         self.state_bins = {
-            'x': np.linspace(-1.5, 1.5, 20),          # posizione x
-            'y': np.linspace(0, 1.5, 20),             # posizione y  
-            'vx': np.linspace(-2, 2, 20),             # velocità x
-            'vy': np.linspace(-2, 2, 20),             # velocità y
-            'angle': np.linspace(-np.pi, np.pi, 20),  # angolo
-            'angular_vel': np.linspace(-5, 5, 20),    # velocità angolare
+            'x': np.linspace(-1.5, 1.5, 5),          # posizione x
+            'y': np.linspace(0, 1.5, 5),             # posizione y  
+            'vx': np.linspace(-2, 2, 5),             # velocità x
+            'vy': np.linspace(-2, 2, 5),             # velocità y
+            'angle': np.linspace(-np.pi, np.pi, 5),  # angolo
+            'angular_vel': np.linspace(-5, 5, 5),    # velocità angolare
             'leg1': [0, 1],                           # contatto gamba 1 (binario)
             'leg2': [0, 1]                            # contatto gamba 2 (binario)
         }
@@ -240,14 +240,17 @@ class LunarLanderClass:
                 avg_reward = np.mean(self.episode_rewards[-100:])
                 print(f"Episodio {episode}, Reward medio (ultimi 100): {avg_reward:.2f}")
             
-            # Rendering opzionale
-            if render_episode_interval and episode % render_episode_interval == 0:
-                self.test_policy(env, render=True)
+            # Test della policy senza rendering per evitare loop infiniti
+            if render_episode_interval and episode % render_episode_interval == 0 and episode > 0:
+                print(f"\n--- Test Policy all'episodio {episode} ---")
+                avg_test_reward = self.test_policy(env, render=False, num_episodes=3)
+                print(f"Reward medio nel test: {avg_test_reward:.2f}")
+                print("--- Fine Test ---\n")
         
         print("Addestramento completato!")
         self.plot_training_stats()
     
-    def test_policy(self, env, render=False, num_episodes=1):
+    def test_policy(self, env, render=False, num_episodes=1, max_steps=1000):
         """
         Testa la policy appresa
         
@@ -260,34 +263,53 @@ class LunarLanderClass:
             float: Reward medio
         """
         total_rewards = []
+        # Crea un ambiente separato per il rendering se necessario
+        if render:
+            test_env = gym.make('LunarLander-v2', render_mode='human')
+        else:
+            test_env = env
         
-        for _ in range(num_episodes):
-            state, _ = env.reset()
+        for episode in range(num_episodes):
+            if render:
+                state, _ = test_env.reset()
+            else:
+                state, _ = env.reset()
             state = self.discretize_state(state)
             
             episode_reward = 0
+            steps = 0  
             
-            while True:
+            while steps < max_steps: 
                 # Usa policy greedy (epsilon = 0)
                 q_values = []
                 for action in range(self.num_actions):
                     q_values.append(self.get_q_value(state, action))
                 action = np.argmax(q_values)
                 
-                next_state, reward, terminated, truncated, _ = env.step(action)
+                if render:
+                    next_state, reward, terminated, truncated, _ = test_env.step(action)
+                else:
+                    next_state, reward, terminated, truncated, _ = env.step(action)
                 next_state = self.discretize_state(next_state)
                 
                 episode_reward += reward
-                
+                steps += 1
+
                 if terminated or truncated:
                     break
                 
                 state = next_state
             
             total_rewards.append(episode_reward)
+            if render:
+                print(f"Episodio test {episode + 1}: Reward = {episode_reward:.2f}, Passi = {steps}")
+
+            if render:
+                test_env.close()
         
-        avg_reward = np.mean(total_rewards)
-        print(f"Test completato - Reward medio: {avg_reward:.2f}")
+            avg_reward = np.mean(total_rewards)
+            if not render:  # Stampa solo se non stiamo facendo rendering
+                print(f"Test completato - Reward medio: {avg_reward:.2f}")
         return avg_reward
     
     def plot_training_stats(self):
