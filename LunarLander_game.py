@@ -21,7 +21,7 @@ env = gym.make('LunarLander-v3')
 # Numero di episodi e parametri di apprendimento
 numEpisodes = 4000
 Alpha = 0.15
-initialEpsilon = 1
+initialEpsilon = 0.2
 Lambda = 0.8
 Gamma = 0.99
 k = 0.8

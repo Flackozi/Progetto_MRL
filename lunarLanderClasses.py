@@ -67,7 +67,8 @@ class LunarLanderClass:
         """
         x, y, vx, vy, angle, angular_vel, leg1_contact, leg2_contact = state
         
-        # Discretizza ogni componente dello stato
+        # Discretizza ogni componente dello stato -> siccome digitize parte da 1 facciamo -1
+        # x-bin rappresenta l'indice del bin dove entra x
         x_bin = np.digitize(x, self.state_bins['x']) - 1
         y_bin = np.digitize(y, self.state_bins['y']) - 1
         vx_bin = np.digitize(vx, self.state_bins['vx']) - 1
@@ -111,7 +112,8 @@ class LunarLanderClass:
             int: Azione selezionata
         """
         # Calcola epsilon con decadimento
-        epsilon = self.initialEpsilon / (1 + self.k * episode / self.numEpisodes)
+        # epsilon = self.initialEpsilon / (1 + self.k * episode / self.numEpisodes)
+        epsilon = self.initialEpsilon
         
         if np.random.random() < epsilon:
             # Azione casuale
@@ -140,7 +142,7 @@ class LunarLanderClass:
         key = self.get_state_action_key(state, action)
         return self.weights[key]
     
-    def update_eligibility_traces(self, state, action, decay=True):
+    def update_eligibility_traces(self, state, action, q_old):
         """
         Aggiorna le eligibility traces
         
@@ -149,16 +151,20 @@ class LunarLanderClass:
             action: Azione
             decay: Se applicare il decadimento alle traces esistenti
         """
-        if decay:
-            # Applica il decadimento a tutte le traces
-            for key in list(self.eligibility_traces.keys()):
-                self.eligibility_traces[key] *= self.gamma * self.lambda_param
-                if abs(self.eligibility_traces[key]) < 1e-8:
-                    del self.eligibility_traces[key]
+        
+        # Applica il decadimento a tutte le traces
+        for key in list(self.eligibility_traces.keys()):
+            self.eligibility_traces[key] *= self.gamma * self.lambda_param
+            if abs(self.eligibility_traces[key]) < 1e-8:
+                del self.eligibility_traces[key]
         
         # Imposta la trace corrente a 1
         current_key = self.get_state_action_key(state, action)
-        self.eligibility_traces[current_key] = 1.0
+        current_trace = self.eligibility_traces.get(current_key, 0.0)
+        correction = 1.0 - self.alpha * self.gamma * self.lambda_param * current_trace
+        self.eligibility_traces[current_key] = current_trace * correction
+
+        return current_trace
     
     def SARSALambda(self, env, render_episode_interval=None):
         """
