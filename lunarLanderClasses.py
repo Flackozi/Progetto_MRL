@@ -235,14 +235,12 @@ class LunarLanderClass:
         # Applica il decadimento a tutte le traces esistenti
         for feature in list(self.eligibility_traces.keys()):
             self.eligibility_traces[feature] *= self.gamma * self.lambda_param
-            if abs(self.eligibility_traces[feature]) < 1e-8:
-                del self.eligibility_traces[feature]
         
         # Imposta le traces per le feature attive correnti
         features = self.get_state_action_features(state, action)
         for feature in features:
-            # Per tile coding, ogni feature attiva ottiene trace = 1
-            self.eligibility_traces[feature] = 1.0
+            old_value = self.eligibility_traces.get(feature, 0.0)
+            self.eligibility_traces[feature] = (1 - self.alpha) * old_value + 1
     
     def SARSALambda(self, env, render_episode_interval=None):
         """
