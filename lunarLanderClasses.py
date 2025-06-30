@@ -2,96 +2,125 @@ import numpy as np
 import matplotlib.pyplot as plt
 from collections import defaultdict
 import gymnasium as gym
+from tiles3 import IHT, tiles
+
+# class TileCoder:
+#     """
+#     Implementa il tile coding per la rappresentazione degli stati continui
+#     """
+#     def __init__(self, num_tilings=8, tiles_per_dim=8, state_bounds=None):
+#         """
+#         Args:
+#             num_tilings: Numero di tiling sovrapposti
+#             tiles_per_dim: Numero di tile per dimensione
+#             state_bounds: Limiti delle dimensioni dello stato [(min, max), ...]
+#         """
+#         self.num_tilings = num_tilings
+#         self.tiles_per_dim = tiles_per_dim
+#         self.state_bounds = state_bounds or [
+#             (-1.5, 1.5),    # x position
+#             (0, 1.5),       # y position  
+#             (-2, 2),        # x velocity
+#             (-2, 2),        # y velocity
+#             (-np.pi, np.pi), # angle
+#             (-5, 5),        # angular velocity
+#             (0, 1),         # leg1 contact
+#             (0, 1)          # leg2 contact
+#         ]
+    
+        
+#         self.num_dims = len(self.state_bounds)
+        
+#         # Calcola gli offset per ogni tiling
+#         self.offsets = []
+#         for i in range(self.num_tilings):
+#             offset = []
+#             for dim in range(self.num_dims):
+#                 range_size = self.state_bounds[dim][1] - self.state_bounds[dim][0]
+#                 tile_width = range_size / self.tiles_per_dim
+#                 # Offset uniforme per ogni tiling
+#                 offset_val = (i / self.num_tilings) * tile_width
+#                 offset.append(offset_val)
+#             self.offsets.append(offset)
+    
+#     def get_tiles(self, state):
+#         """
+#         Restituisce gli indici dei tile attivi per lo stato dato
+        
+#         Args:
+#             state: Stato continuo (array numpy)
+            
+#         Returns:
+#             list: Lista degli indici dei tile attivi
+#         """
+#         active_tiles = []
+        
+#         for tiling in range(self.num_tilings):
+#             tile_coords = []
+            
+#             for dim in range(self.num_dims):
+#                 # Applica i bounds e l'offset per questo tiling
+#                 val = state[dim]
+#                 min_val, max_val = self.state_bounds[dim]
+                
+#                 # Clamp del valore nei bounds
+#                 val = max(min_val, min(max_val, val))
+                
+#                 # Calcola la coordinata del tile con offset
+#                 range_size = max_val - min_val
+#                 tile_width = range_size / self.tiles_per_dim
+                
+#                 # Applica l'offset specifico per questo tiling
+#                 shifted_val = val - min_val + self.offsets[tiling][dim]
+#                 tile_coord = int(shifted_val / tile_width) # --> per ottenere la coordinata del tile in questa dimensione
+                
+#                 # Assicura che sia nei limiti
+#                 tile_coord = max(0, min(self.tiles_per_dim - 1, tile_coord))
+#                 tile_coords.append(tile_coord)
+            
+#             # Calcola l'indice univoco per questo tile (tipo sub2ind)
+#             tile_index = 0
+#             multiplier = 1
+#             for coord in reversed(tile_coords):
+#                 tile_index += coord * multiplier
+#                 multiplier *= self.tiles_per_dim
+            
+#             # Aggiunge l'offset del tiling per renderlo unico
+#             tile_index += tiling * (self.tiles_per_dim ** self.num_dims)
+#             active_tiles.append(tile_index)
+        
+#         return active_tiles
 
 class TileCoder:
-    """
-    Implementa il tile coding per la rappresentazione degli stati continui
-    """
-    def __init__(self, num_tilings=8, tiles_per_dim=8, state_bounds=None):
-        """
-        Args:
-            num_tilings: Numero di tiling sovrapposti
-            tiles_per_dim: Numero di tile per dimensione
-            state_bounds: Limiti delle dimensioni dello stato [(min, max), ...]
-        """
+    def __init__(self, iht_size=4096, num_tilings=8, tiles_per_dim=8, state_bounds=None):
+        self.iht = IHT(iht_size)
         self.num_tilings = num_tilings
         self.tiles_per_dim = tiles_per_dim
+
+        # Rimuovi leg1 e leg2 -> solo primi 6 elementi
         self.state_bounds = state_bounds or [
-            (-1.5, 1.5),    # x position
-            (0, 1.5),       # y position  
-            (-2, 2),        # x velocity
-            (-2, 2),        # y velocity
-            (-np.pi, np.pi), # angle
-            (-5, 5),        # angular velocity
-            (0, 1),         # leg1 contact
-            (0, 1)          # leg2 contact
+            (-1.5, 1.5),     # x position
+            (0, 1.5),        # y position  
+            (-3, 3),         # x velocity
+            (-3, 3),         # y velocity
+            (-np.pi, np.pi),# angle
+            (-8, 8)          # angular velocity
         ]
-    
-        
+
         self.num_dims = len(self.state_bounds)
-        
-        # Calcola gli offset per ogni tiling
-        self.offsets = []
-        for i in range(self.num_tilings):
-            offset = []
-            for dim in range(self.num_dims):
-                range_size = self.state_bounds[dim][1] - self.state_bounds[dim][0]
-                tile_width = range_size / self.tiles_per_dim
-                # Offset uniforme per ogni tiling
-                offset_val = (i / self.num_tilings) * tile_width
-                offset.append(offset_val)
-            self.offsets.append(offset)
-    
+
     def get_tiles(self, state):
-        """
-        Restituisce gli indici dei tile attivi per lo stato dato
-        
-        Args:
-            state: Stato continuo (array numpy)
-            
-        Returns:
-            list: Lista degli indici dei tile attivi
-        """
-        active_tiles = []
-        
-        for tiling in range(self.num_tilings):
-            tile_coords = []
-            
-            for dim in range(self.num_dims):
-                # Applica i bounds e l'offset per questo tiling
-                val = state[dim]
-                min_val, max_val = self.state_bounds[dim]
-                
-                # Clamp del valore nei bounds
-                val = max(min_val, min(max_val, val))
-                
-                # Calcola la coordinata del tile con offset
-                range_size = max_val - min_val
-                tile_width = range_size / self.tiles_per_dim
-                
-                # Applica l'offset specifico per questo tiling
-                shifted_val = val - min_val + self.offsets[tiling][dim]
-                tile_coord = int(shifted_val / tile_width) # --> per ottenere la coordinata del tile in questa dimensione
-                
-                # Assicura che sia nei limiti
-                tile_coord = max(0, min(self.tiles_per_dim - 1, tile_coord))
-                tile_coords.append(tile_coord)
-            
-            # Calcola l'indice univoco per questo tile (tipo sub2ind)
-            tile_index = 0
-            multiplier = 1
-            for coord in reversed(tile_coords):
-                tile_index += coord * multiplier
-                multiplier *= self.tiles_per_dim
-            
-            # Aggiunge l'offset del tiling per renderlo unico
-            tile_index += tiling * (self.tiles_per_dim ** self.num_dims)
-            active_tiles.append(tile_index)
-        
-        return active_tiles
+        # Considera solo le prime 6 dimensioni (esclude leg1, leg2)
+        scaled_state = []
+        for i in range(self.num_dims):
+            min_val, max_val = self.state_bounds[i]
+            ratio = (state[i] - min_val) / (max_val - min_val)
+            scaled_val = ratio * self.tiles_per_dim
+            scaled_state.append(scaled_val)
+        return tiles(self.iht, self.num_tilings, scaled_state)
 
 class LunarLanderClass:
-    def __init__(self, numEpisodes, Alpha, initialEpsilon, Lambda, Gamma, k, epsUpdate):
+    def __init__(self, numEpisodes, Alpha, Epsilon, Lambda, Gamma, k):
         """
         Inizializza la classe per l'apprendimento SARSA(λ) su Lunar Lander con Tile Coding
         
@@ -105,28 +134,27 @@ class LunarLanderClass:
         """
         self.numEpisodes = numEpisodes
         self.alpha = Alpha
-        self.epsilon = initialEpsilon
+        self.epsilon = Epsilon
         self.lambda_param = Lambda
         self.gamma = Gamma
         self.k = k
-        self.epsUpdate = epsUpdate
         
         # Spazio delle azioni per Lunar Lander (4 azioni discrete)
         self.num_actions = 4
         
         # Inizializza il tile coder con parametri ottimizzati
+        
         self.tile_coder = TileCoder(
+            iht_size=8192,
             num_tilings=8,
-            tiles_per_dim=10,  # Aumentato per maggiore risoluzione
+            tiles_per_dim=8,
             state_bounds=[
-                (-1.5, 1.5),     # x position
-                (0, 1.5),        # y position  
-                (-3, 3),         # x velocity - range ampliato
-                (-3, 3),         # y velocity - range ampliato
-                (-np.pi, np.pi), # angle
-                (-8, 8),         # angular velocity - range ampliato
-                (0, 1),          # leg1 contact
-                (0, 1)           # leg2 contact
+                (-1.5, 1.5),     # x
+                (0, 1.5),        # y
+                (-3, 3),         # vx
+                (-3, 3),         # vy
+                (-np.pi, np.pi),# angle
+                (-8, 8)          # angular vel
             ]
         )
         
@@ -170,15 +198,15 @@ class LunarLanderClass:
         Returns:
             list: Lista delle feature attive per questa coppia stato-azione
         """
-        active_tiles = self.get_active_tiles(state)
-        # Combina i tile con l'azione per creare feature uniche
+        
+        active_tiles = self.get_active_tiles(state[:6])  # Solo le 6 dimensioni continue
+        leg1, leg2 = int(state[6]), int(state[7])        # Binari
         features = []
         for tile in active_tiles:
-            # Crea una feature unica per ogni combinazione tile-azione
-            feature = (tile, action)
-            features.append(feature)
+            features.append((tile, action, leg1, leg2))  # Aggiungi come parte della chiave
         return features
-    
+
+
     def epsilon_greedy(self, state, episode):
         """
         Implementa la strategia epsilon-greedy per la selezione delle azioni
@@ -190,9 +218,7 @@ class LunarLanderClass:
         Returns:
             int: Azione selezionata
         """
-        # Calcola epsilon con decadimento per migliorare l'apprendimento
-        self.epsilon = self.epsilon - self.epsUpdate
-        self.epsilon = max(0.05, self.epsilon)  # Minimo epsilon per mantenere esplorazione
+        
         
         if np.random.random() < self.epsilon:
             # Azione casuale
@@ -331,6 +357,8 @@ class LunarLanderClass:
         
         print("Addestramento completato!")
         self.plot_training_stats()
+        self.save_policy("policy_sarsa.npy")
+
     
     def test_policy(self, env, render=False, num_episodes=1, max_steps=1000):
         """

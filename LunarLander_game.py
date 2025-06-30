@@ -19,16 +19,15 @@ import lunarLanderClasses as LLC
 env = gym.make('LunarLander-v3')
 
 # Numero di episodi e parametri di apprendimento
-numEpisodes = 10000
+numEpisodes = 1000000
 Alpha = 0.005
-initialEpsilon = 0.8
+Epsilon = 0.2
 Lambda = 0.8
 Gamma = 0.5
 k = 2
-epsUpdate = 0.000075
 
 # Classe per l'apprendimento (definita nel file lunarLanderClasses.py)
-Class = LLC.LunarLanderClass(numEpisodes, Alpha, initialEpsilon, Lambda, Gamma, k, epsUpdate)
+Class = LLC.LunarLanderClass(numEpisodes, Alpha, Epsilon, Lambda, Gamma, k)
 Class.initStage(1)
 
 # Eseguo l'algoritmo SARSA(λ) su Lunar Lander
