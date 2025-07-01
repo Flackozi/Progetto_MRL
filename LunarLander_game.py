@@ -31,6 +31,6 @@ Class = LLC.LunarLanderClass(numEpisodes, Alpha, Epsilon, Lambda, Gamma, k)
 Class.initStage(1)
 
 # Eseguo l'algoritmo SARSA(λ) su Lunar Lander
-Class.SARSALambda(env, 500)
+Class.SARSALambda(env, 50000)
 
 env.close()

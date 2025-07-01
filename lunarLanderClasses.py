@@ -145,7 +145,7 @@ class LunarLanderClass:
         # Inizializza il tile coder con parametri ottimizzati
         
         self.tile_coder = TileCoder(
-            iht_size=8192,
+            iht_size=131072,
             num_tilings=8,
             tiles_per_dim=8,
             state_bounds=[
@@ -282,6 +282,7 @@ class LunarLanderClass:
         print("Iniziando l'addestramento SARSA(λ) con Tile Coding...")
         
         for episode in range(self.numEpisodes):
+            # print(episode)
             # Reset dell'ambiente
             state, _ = env.reset()
             # Nota: ora usiamo direttamente lo stato continuo, senza discretizzazione
@@ -344,14 +345,15 @@ class LunarLanderClass:
             self.episode_lengths.append(episode_length)
             
             # Stampa progresso
-            if episode % 100 == 0:
+            if episode % 10000 == 0:
                 avg_reward = np.mean(self.episode_rewards[-100:])
                 print(f"Episodio {episode}, Reward medio (ultimi 100): {avg_reward:.2f}")
             
             # Test della policy
             if render_episode_interval and episode % render_episode_interval == 0 and episode > 0:
                 print(f"\n--- Test Policy all'episodio {episode} ---")
-                avg_test_reward = self.test_policy(env, render=False, num_episodes=3)
+                # Test con un solo episodio invece di 3
+                avg_test_reward = self.test_policy(env, render=False, num_episodes=1)
                 print(f"Reward medio nel test: {avg_test_reward:.2f}")
                 print("--- Fine Test ---\n")
         
