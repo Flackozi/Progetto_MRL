@@ -3,6 +3,7 @@ import matplotlib.pyplot as plt
 from collections import defaultdict
 import gymnasium as gym
 from tiles3 import IHT, tiles
+from tqdm import trange
 
 # class TileCoder:
 #     """
@@ -127,7 +128,7 @@ class LunarLanderClass:
         Args:
             numEpisodes: Numero di episodi di training
             Alpha: Learning rate
-            initialEpsilon: Valore iniziale di epsilon per epsilon-greedy
+            initialEpsilon: Valore di epsilon per epsilon-greedy
             Lambda: Parametro lambda per eligibility traces
             Gamma: Fattore di sconto
             k: Parametro per il decadimento di epsilon
@@ -145,7 +146,7 @@ class LunarLanderClass:
         # Inizializza il tile coder con parametri ottimizzati
         
         self.tile_coder = TileCoder(
-            iht_size=131072,
+            iht_size=65536,
             num_tilings=8,
             tiles_per_dim=8,
             state_bounds=[
@@ -281,7 +282,7 @@ class LunarLanderClass:
         
         print("Iniziando l'addestramento SARSA(λ) con Tile Coding...")
         
-        for episode in range(self.numEpisodes):
+        for episode in trange(self.numEpisodes, desc="Addestramento SARSA(λ)", ncols=100):
             # print(episode)
             # Reset dell'ambiente
             state, _ = env.reset()
@@ -379,7 +380,7 @@ class LunarLanderClass:
         
         # Crea un ambiente separato per il rendering se necessario
         if render:
-            test_env = gym.make('LunarLander-v2', render_mode='human')
+            test_env = gym.make('LunarLander-v3', render_mode='human')
         else:
             test_env = env
         

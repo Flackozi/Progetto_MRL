@@ -19,11 +19,11 @@ import lunarLanderClasses as LLC
 env = gym.make('LunarLander-v3')
 
 # Numero di episodi e parametri di apprendimento
-numEpisodes = 1000000
+numEpisodes = 100000
 Alpha = 0.005
 Epsilon = 0.2
 Lambda = 0.8
-Gamma = 0.5
+Gamma = 0.99
 k = 2
 
 # Classe per l'apprendimento (definita nel file lunarLanderClasses.py)
