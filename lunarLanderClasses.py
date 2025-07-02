@@ -4,93 +4,8 @@ from collections import defaultdict
 import gymnasium as gym
 from tiles3 import IHT, tiles
 from tqdm import trange
+import pickle
 
-# class TileCoder:
-#     """
-#     Implementa il tile coding per la rappresentazione degli stati continui
-#     """
-#     def __init__(self, num_tilings=8, tiles_per_dim=8, state_bounds=None):
-#         """
-#         Args:
-#             num_tilings: Numero di tiling sovrapposti
-#             tiles_per_dim: Numero di tile per dimensione
-#             state_bounds: Limiti delle dimensioni dello stato [(min, max), ...]
-#         """
-#         self.num_tilings = num_tilings
-#         self.tiles_per_dim = tiles_per_dim
-#         self.state_bounds = state_bounds or [
-#             (-1.5, 1.5),    # x position
-#             (0, 1.5),       # y position  
-#             (-2, 2),        # x velocity
-#             (-2, 2),        # y velocity
-#             (-np.pi, np.pi), # angle
-#             (-5, 5),        # angular velocity
-#             (0, 1),         # leg1 contact
-#             (0, 1)          # leg2 contact
-#         ]
-    
-        
-#         self.num_dims = len(self.state_bounds)
-        
-#         # Calcola gli offset per ogni tiling
-#         self.offsets = []
-#         for i in range(self.num_tilings):
-#             offset = []
-#             for dim in range(self.num_dims):
-#                 range_size = self.state_bounds[dim][1] - self.state_bounds[dim][0]
-#                 tile_width = range_size / self.tiles_per_dim
-#                 # Offset uniforme per ogni tiling
-#                 offset_val = (i / self.num_tilings) * tile_width
-#                 offset.append(offset_val)
-#             self.offsets.append(offset)
-    
-#     def get_tiles(self, state):
-#         """
-#         Restituisce gli indici dei tile attivi per lo stato dato
-        
-#         Args:
-#             state: Stato continuo (array numpy)
-            
-#         Returns:
-#             list: Lista degli indici dei tile attivi
-#         """
-#         active_tiles = []
-        
-#         for tiling in range(self.num_tilings):
-#             tile_coords = []
-            
-#             for dim in range(self.num_dims):
-#                 # Applica i bounds e l'offset per questo tiling
-#                 val = state[dim]
-#                 min_val, max_val = self.state_bounds[dim]
-                
-#                 # Clamp del valore nei bounds
-#                 val = max(min_val, min(max_val, val))
-                
-#                 # Calcola la coordinata del tile con offset
-#                 range_size = max_val - min_val
-#                 tile_width = range_size / self.tiles_per_dim
-                
-#                 # Applica l'offset specifico per questo tiling
-#                 shifted_val = val - min_val + self.offsets[tiling][dim]
-#                 tile_coord = int(shifted_val / tile_width) # --> per ottenere la coordinata del tile in questa dimensione
-                
-#                 # Assicura che sia nei limiti
-#                 tile_coord = max(0, min(self.tiles_per_dim - 1, tile_coord))
-#                 tile_coords.append(tile_coord)
-            
-#             # Calcola l'indice univoco per questo tile (tipo sub2ind)
-#             tile_index = 0
-#             multiplier = 1
-#             for coord in reversed(tile_coords):
-#                 tile_index += coord * multiplier
-#                 multiplier *= self.tiles_per_dim
-            
-#             # Aggiunge l'offset del tiling per renderlo unico
-#             tile_index += tiling * (self.tiles_per_dim ** self.num_dims)
-#             active_tiles.append(tile_index)
-        
-#         return active_tiles
 
 class TileCoder:
     def __init__(self, iht_size=4096, num_tilings=8, tiles_per_dim=8, state_bounds=None):
@@ -104,7 +19,7 @@ class TileCoder:
             (0, 1.5),        # y position  
             (-3, 3),         # x velocity
             (-3, 3),         # y velocity
-            (-np.pi, np.pi),# angle
+            (-np.pi, np.pi), # angle
             (-8, 8)          # angular velocity
         ]
 
@@ -124,14 +39,6 @@ class LunarLanderClass:
     def __init__(self, numEpisodes, Alpha, Epsilon, Lambda, Gamma, k):
         """
         Inizializza la classe per l'apprendimento SARSA(λ) su Lunar Lander con Tile Coding
-        
-        Args:
-            numEpisodes: Numero di episodi di training
-            Alpha: Learning rate
-            initialEpsilon: Valore di epsilon per epsilon-greedy
-            Lambda: Parametro lambda per eligibility traces
-            Gamma: Fattore di sconto
-            k: Parametro per il decadimento di epsilon
         """
         self.numEpisodes = numEpisodes
         self.alpha = Alpha
@@ -144,7 +51,6 @@ class LunarLanderClass:
         self.num_actions = 4
         
         # Inizializza il tile coder con parametri ottimizzati
-        
         self.tile_coder = TileCoder(
             iht_size=65536,
             num_tilings=8,
@@ -154,7 +60,7 @@ class LunarLanderClass:
                 (0, 1.5),        # y
                 (-3, 3),         # vx
                 (-3, 3),         # vy
-                (-np.pi, np.pi),# angle
+                (-np.pi, np.pi), # angle
                 (-8, 8)          # angular vel
             ]
         )
@@ -177,74 +83,34 @@ class LunarLanderClass:
         print(f"Inizializzato stage {stage} con Tile Coding")
         
     def get_active_tiles(self, state):
-        """
-        Ottiene i tile attivi per lo stato continuo
-        
-        Args:
-            state: Stato continuo dall'ambiente (8-dimensional array)
-            
-        Returns:
-            list: Lista degli indici dei tile attivi
-        """
+        """Ottiene i tile attivi per lo stato continuo"""
         return self.tile_coder.get_tiles(state)
     
     def get_state_action_features(self, state, action):
-        """
-        Crea le feature per la coppia stato-azione usando tile coding
-        
-        Args:
-            state: Stato continuo
-            action: Azione
-            
-        Returns:
-            list: Lista delle feature attive per questa coppia stato-azione
-        """
-        
+        """Crea le feature per la coppia stato-azione usando tile coding"""
         active_tiles = self.get_active_tiles(state[:6])  # Solo le 6 dimensioni continue
         leg1, leg2 = int(state[6]), int(state[7])        # Binari
         features = []
         for tile in active_tiles:
-            features.append((tile, action, leg1, leg2))  # Aggiungi come parte della chiave
+            features.append((tile, action, leg1, leg2))
         return features
 
-
     def epsilon_greedy(self, state, episode):
-        """
-        Implementa la strategia epsilon-greedy per la selezione delle azioni
-        
-        Args:
-            state: Stato continuo
-            episode: Numero dell'episodio corrente
-            
-        Returns:
-            int: Azione selezionata
-        """
-        
-        
-        if np.random.random() < self.epsilon:
-            # Azione casuale
-            return np.random.randint(0, self.num_actions)
-        else:
+        """Implementa la strategia epsilon-greedy per la selezione delle azioni"""
+        # Durante il test, usa sempre policy greedy
+        if self.epsilon == 0.0 or np.random.random() >= self.epsilon:
             # Azione greedy (migliore Q-value)
             q_values = []
             for action in range(self.num_actions):
                 q_value = self.get_q_value(state, action)
                 q_values.append(q_value)
-            
-            # Restituisce l'azione con il Q-value più alto
             return np.argmax(q_values)
+        else:
+            # Azione casuale
+            return np.random.randint(0, self.num_actions)
     
     def get_q_value(self, state, action):
-        """
-        Ottiene il Q-value per una coppia stato-azione usando tile coding
-        
-        Args:
-            state: Stato continuo
-            action: Azione
-            
-        Returns:
-            float: Q-value come somma dei pesi delle feature attive
-        """
+        """Ottiene il Q-value per una coppia stato-azione usando tile coding"""
         features = self.get_state_action_features(state, action)
         q_value = 0.0
         for feature in features:
@@ -252,13 +118,7 @@ class LunarLanderClass:
         return q_value
     
     def update_eligibility_traces(self, state, action):
-        """
-        Aggiorna le eligibility traces per tile coding
-        
-        Args:
-            state: Stato continuo
-            action: Azione
-        """
+        """Aggiorna le eligibility traces per tile coding"""
         # Applica il decadimento a tutte le traces esistenti
         for feature in list(self.eligibility_traces.keys()):
             self.eligibility_traces[feature] *= self.gamma * self.lambda_param
@@ -270,23 +130,15 @@ class LunarLanderClass:
             self.eligibility_traces[feature] = (1 - self.alpha) * old_value + 1
     
     def SARSALambda(self, env, render_episode_interval=None):
-        """
-        Implementa l'algoritmo SARSA(λ) per Lunar Lander con Tile Coding
-        
-        Args:
-            env: Ambiente Gymnasium
-            render_episode_interval: Intervallo per il rendering (None = mai)
-        """
+        """Implementa l'algoritmo SARSA(λ) per Lunar Lander con Tile Coding"""
         if not self.initialized:
             raise Exception("Devi chiamare initStage() prima di eseguire SARSA(λ)")
         
         print("Iniziando l'addestramento SARSA(λ) con Tile Coding...")
         
         for episode in trange(self.numEpisodes, desc="Addestramento SARSA(λ)", ncols=100):
-            # print(episode)
             # Reset dell'ambiente
             state, _ = env.reset()
-            # Nota: ora usiamo direttamente lo stato continuo, senza discretizzazione
             
             # Selezione azione iniziale
             action = self.epsilon_greedy(state, episode)
@@ -300,7 +152,6 @@ class LunarLanderClass:
             while True:
                 # Esegui l'azione
                 next_state, reward, terminated, truncated, _ = env.step(action)
-                # Nota: anche qui usiamo direttamente lo stato continuo
                 
                 episode_reward += reward
                 episode_length += 1
@@ -353,29 +204,16 @@ class LunarLanderClass:
             # Test della policy
             if render_episode_interval and episode % render_episode_interval == 0 and episode > 0:
                 print(f"\n--- Test Policy all'episodio {episode} ---")
-                # Test con un solo episodio invece di 3
-                avg_test_reward = self.test_policy(env, render=False, num_episodes=1)
+                avg_test_reward = self.test_policy(env, render=True, num_episodes=1)
                 print(f"Reward medio nel test: {avg_test_reward:.2f}")
                 print("--- Fine Test ---\n")
         
         print("Addestramento completato!")
         self.plot_training_stats()
-        self.save_policy("policy_sarsa.npy")
-
+        self.save_policy("policy_sarsa_complete.pkl")
     
     def test_policy(self, env, render=False, num_episodes=1, max_steps=1000):
-        """
-        Testa la policy appresa
-        
-        Args:
-            env: Ambiente Gymnasium
-            render: Se mostrare il rendering
-            num_episodes: Numero di episodi di test
-            max_steps: Numero massimo di passi per episodio
-            
-        Returns:
-            float: Reward medio
-        """
+        """Testa la policy appresa"""
         total_rewards = []
         
         # Crea un ambiente separato per il rendering se necessario
@@ -389,7 +227,6 @@ class LunarLanderClass:
                 state, _ = test_env.reset()
             else:
                 state, _ = env.reset()
-            # Usa direttamente lo stato continuo
             
             episode_reward = 0
             steps = 0  
@@ -405,7 +242,6 @@ class LunarLanderClass:
                     next_state, reward, terminated, truncated, _ = test_env.step(action)
                 else:
                     next_state, reward, terminated, truncated, _ = env.step(action)
-                # Usa direttamente lo stato continuo
                 
                 episode_reward += reward
                 steps += 1
@@ -423,7 +259,7 @@ class LunarLanderClass:
             test_env.close()
         
         avg_reward = np.mean(total_rewards)
-        if not render:  # Stampa solo se non stiamo facendo rendering
+        if not render:
             print(f"Test completato - Reward medio: {avg_reward:.2f}")
         return avg_reward
     
@@ -456,12 +292,71 @@ class LunarLanderClass:
         plt.show()
     
     def save_policy(self, filename):
-        """Salva la policy appresa"""
-        np.save(filename, dict(self.weights))
-        print(f"Policy salvata in {filename}")
+        """Salva la policy completa incluso il tile coder"""
+        policy_data = {
+            'weights': dict(self.weights),
+            'tile_coder_state': {
+                'iht_size': self.tile_coder.iht.size,
+                'num_tilings': self.tile_coder.num_tilings,
+                'tiles_per_dim': self.tile_coder.tiles_per_dim,
+                'state_bounds': self.tile_coder.state_bounds,
+                'iht_dictionary': self.tile_coder.iht.dictionary,
+                'iht_count': self.tile_coder.iht.count
+            },
+            'training_params': {
+                'alpha': self.alpha,
+                'epsilon': self.epsilon,
+                'lambda_param': self.lambda_param,
+                'gamma': self.gamma,
+                'k': self.k
+            }
+        }
+        
+        with open(filename, 'wb') as f:
+            pickle.dump(policy_data, f)
+        print(f"Policy completa salvata in {filename}")
     
     def load_policy(self, filename):
-        """Carica una policy salvata"""
-        loaded_weights = np.load(filename, allow_pickle=True).item()
-        self.weights = defaultdict(float, loaded_weights)
-        print(f"Policy caricata da {filename}")
+        """Carica una policy completa"""
+        try:
+            with open(filename, 'rb') as f:
+                policy_data = pickle.load(f)
+            
+            # Ripristina i weights
+            self.weights = defaultdict(float, policy_data['weights'])
+            
+            # Ripristina il tile coder
+            tile_state = policy_data['tile_coder_state']
+            self.tile_coder = TileCoder(
+                iht_size=tile_state['iht_size'],
+                num_tilings=tile_state['num_tilings'],
+                tiles_per_dim=tile_state['tiles_per_dim'],
+                state_bounds=tile_state['state_bounds']
+            )
+            
+            # Ripristina lo stato interno dell'IHT
+            self.tile_coder.iht.dictionary = tile_state['iht_dictionary']
+            self.tile_coder.iht.count = tile_state['iht_count']
+            
+            # Ripristina i parametri di training (opzionale, per riferimento)
+            params = policy_data['training_params']
+            print(f"Policy caricata da {filename}")
+            print(f"Parametri originali: α={params['alpha']}, ε={params['epsilon']}, λ={params['lambda_param']}")
+            
+        except FileNotFoundError:
+            print(f"File {filename} non trovato. Provo a caricare il formato vecchio...")
+            self.load_policy_old_format(filename.replace('.pkl', '.npy'))
+        except Exception as e:
+            print(f"Errore nel caricamento: {e}")
+            print("Provo a caricare il formato vecchio...")
+            self.load_policy_old_format(filename.replace('.pkl', '.npy'))
+    
+    def load_policy_old_format(self, filename):
+        """Carica una policy nel formato vecchio (solo per compatibilità)"""
+        try:
+            loaded_weights = np.load(filename, allow_pickle=True).item()
+            self.weights = defaultdict(float, loaded_weights)
+            print(f"Policy caricata da {filename} (formato vecchio)")
+            print("ATTENZIONE: Il tile coder potrebbe non essere identico a quello usato durante l'addestramento!")
+        except Exception as e:
+            print(f"Errore nel caricamento del formato vecchio: {e}")
