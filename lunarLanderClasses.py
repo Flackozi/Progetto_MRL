@@ -209,10 +209,10 @@ class LunarLanderClass:
                 print("--- Fine Test ---\n")
         
         print("Addestramento completato!")
-        self.plot_training_stats()
         self.save_policy("policy_sarsa_complete.pkl")
+        self.plot_training_stats()
     
-    def test_policy(self, env, render=False, num_episodes=1, max_steps=1000):
+    def test_policy(self, env, render=False, num_episodes=1, max_steps=500):
         """Testa la policy appresa"""
         total_rewards = []
         
